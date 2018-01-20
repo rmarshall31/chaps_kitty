@@ -5,6 +5,7 @@ import json
 import requests
 
 lake_lanier_url = "https://waterservices.usgs.gov/nwis/iv/?site=02334400&parameterCd=00062&format=json"
+angry_chaps_kitty_mp3 = "https://s3.amazonaws.com/chapskitty/cat.mp3"
 
 
 # --------------- Helpers that build all of the responses ----------------------
@@ -24,6 +25,27 @@ def build_speechlet_response(title, output, reprompt_text, should_end_session):
             'outputSpeech': {
                 'type': 'PlainText',
                 'text': reprompt_text
+            }
+        },
+        'shouldEndSession': should_end_session
+    }
+
+
+def build_ssml_response(title, output, reprompt_text, should_end_session):
+    return {
+        'outputSpeech': {
+            'type': "SSML",
+            'ssml': output
+        },
+        'card': {
+            'type': 'Simple',
+            'title': title,
+            'content': output
+        },
+        'reprompt': {
+            'outputSpeech': {
+                'type': "SSML",
+                'ssml': reprompt_text
             }
         },
         'shouldEndSession': should_end_session
@@ -115,6 +137,17 @@ def handle_session_end_request():
         card_title, speech_output, None, should_end_session))
 
 
+def duck_with_blue_and_chief():
+    print("ducking with blue and chief")
+    session_attributes = {}
+    card_title = "Angry Chaps"
+    speech_output = '<speak><audio src="{url}"/></speak>'.format(url=angry_chaps_kitty_mp3)
+    reprompt_text = "meow"
+    should_end_session = True
+    return build_response(session_attributes, build_ssml_response(
+        card_title, speech_output, reprompt_text, should_end_session))
+
+
 # --------------- Events ------------------
 
 def on_session_started(session_started_request, session):
@@ -142,6 +175,8 @@ def on_intent(intent_request, session):
         return get_the_schnoozinist()
     if intent_name == "Treats":
         return get_treat_storage_location()
+    if intent_name == "AntagonizeDogs":
+        return duck_with_blue_and_chief()
     if intent_name == "AMAZON.HelpIntent":
         return get_help_response()
     if intent_name == "AMAZON.CancelIntent":
