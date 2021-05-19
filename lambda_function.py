@@ -1,11 +1,9 @@
-from __future__ import print_function
-
 import json
 
 import requests
 
-lake_lanier_url = "https://waterservices.usgs.gov/nwis/iv/?site=02334400&parameterCd=00062&format=json"
-angry_chaps_kitty_mp3 = "https://s3.amazonaws.com/chapskitty/cat.mp3"
+LAKE_LANIER_URL = "https://waterservices.usgs.gov/nwis/iv/?site=02334400&parameterCd=00062&format=json"
+ANGRY_CHAPS_KITTY_MP3 = "https://s3.amazonaws.com/chapskitty/cat.mp3"
 
 
 # --------------- Helpers that build all of the responses ----------------------
@@ -64,7 +62,7 @@ def build_response(session_attributes, speechlet_response):
 
 
 def get_lake_level():
-    r = requests.get(lake_lanier_url)
+    r = requests.get(LAKE_LANIER_URL)
     data = json.loads(r.text)
     lake_level = data["value"]["timeSeries"][0]["values"][0]["value"][0]["value"]
     session_attributes = {}
@@ -141,7 +139,7 @@ def duck_with_blue_and_chief():
     print("ducking with blue and chief")
     session_attributes = {}
     card_title = "Angry Chaps"
-    speech_output = '<speak><audio src="{url}"/></speak>'.format(url=angry_chaps_kitty_mp3)
+    speech_output = '<speak><audio src="{url}"/></speak>'.format(url=ANGRY_CHAPS_KITTY_MP3)
     reprompt_text = "meow"
     should_end_session = True
     return build_response(session_attributes, build_ssml_response(
@@ -183,8 +181,7 @@ def on_intent(intent_request, session):
         return handle_session_end_request()
     if intent_name == "AMAZON.StopIntent":
         return handle_session_end_request()
-    else:
-        raise ValueError("Invalid intent")
+    raise ValueError("Invalid intent")
 
 
 def on_session_ended(session_ended_request, session):
@@ -208,7 +205,7 @@ def lambda_handler(event, context):
 
     if event['request']['type'] == "LaunchRequest":
         return on_launch(event['request'], event['session'])
-    elif event['request']['type'] == "IntentRequest":
+    if event['request']['type'] == "IntentRequest":
         return on_intent(event['request'], event['session'])
-    elif event['request']['type'] == "SessionEndedRequest":
+    if event['request']['type'] == "SessionEndedRequest":
         return on_session_ended(event['request'], event['session'])
