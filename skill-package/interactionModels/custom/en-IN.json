@@ -1,0 +1,95 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "chaps kitty",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.RepeatIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ResumeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.PauseIntent",
+          "samples": []
+        },
+
+        {
+          "name": "AntagonizeDogs",
+          "slots": [],
+          "samples": [
+            "to irritate the dogs",
+            "annoy the dogs",
+            "annoy the dog",
+            "antagonize bolt",
+            "antagonize bolty",
+            "antagonize bolters",
+            "irritate bolt",
+            "irritate bolty",
+            "irritate bolters",
+            "antagonize blue and chief",
+            "duck with blue and chief",
+            "antagonize blue and cheese",
+            "antagonize lewin chief",
+            "irritate blue and chief",
+            "irritate blue and cheese",
+            "irritate lewin and chief"
+          ]
+        },
+        {
+          "name": "LakeLevel",
+          "slots": [],
+          "samples": [
+            "what's the lake level",
+            "what is the lake level",
+            "what's the current lake level",
+            "what is the current lake level",
+            "what the current lake level is"
+          ]
+        },
+        {
+          "name": "Schnoozins",
+          "slots": [],
+          "samples": [
+            "who is the sleepiest kitty",
+            "who is the sleepiest",
+            "who is the schnoozinist kitty",
+            "who is the schnoozinist",
+            "who the schnoozinist kitty is",
+            "who is the snooze and s",
+            "who is the snoozing list",
+            "who is this news in este"
+          ]
+        },
+        {
+          "name": "Treats",
+          "slots": [],
+          "samples": [
+            "where do you keep your treats",
+            "where do the treats go",
+            "where he keeps his treats"
+          ]
+        }
+      ],
+      "types": []
+    }
+  }
+}
