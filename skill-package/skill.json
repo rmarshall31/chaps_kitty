@@ -1,0 +1,112 @@
+{
+  "manifest": {
+    "publishingInformation": {
+      "locales": {
+        "en-US": {
+          "summary": "Chaps Kitty knows about things that Chaps Kitty might know about",
+          "examplePhrases": [
+            "Alexa ask Chaps Kitty what the current lake level is",
+            "Alexa ask Chaps Kitty to irritate the dogs",
+            "Alexa ask Chaps Kitty who is the sleepiest"
+          ],
+          "keywords": [
+            "Chaps",
+            "Kitty"
+          ],
+          "name": "Chaps Kitty",
+          "description": "Ask Chaps Kitty some things, perhaps Chaps Kitty will have an answer for you.\n\nThe source for the Chaps Kitty skill may be found here:\nhttps://github.com/rmarshall31/chaps_kitty",
+          "smallIconUri": "file://assets/images/en-US_smallIconUri.png",
+          "largeIconUri": "file://assets/images/en-US_largeIconUri.png"
+        },
+        "en-CA": {
+          "summary": "Chaps Kitty knows about things that Chaps Kitty might know about",
+          "examplePhrases": [
+            "Alexa ask Chaps Kitty what the current lake level is",
+            "Alexa ask Chaps Kitty to irritate the dogs",
+            "Alexa ask Chaps Kitty who is the sleepiest"
+          ],
+          "keywords": [
+            "Chaps",
+            "Kitty"
+          ],
+          "name": "Chaps Kitty",
+          "description": "Ask Chaps Kitty some things, perhaps Chaps Kitty will have an answer for you.\n\nThe source for the Chaps Kitty skill may be found here:\nhttps://github.com/rmarshall31/chaps_kitty",
+          "smallIconUri": "file://assets/images/en-CA_smallIconUri.png",
+          "largeIconUri": "file://assets/images/en-CA_largeIconUri.png"
+        },
+        "en-IN": {
+          "summary": "Chaps Kitty knows about things that Chaps Kitty might know about",
+          "examplePhrases": [
+            "Alexa ask Chaps Kitty what the current lake level is",
+            "Alexa ask Chaps Kitty to irritate the dogs",
+            "Alexa ask Chaps Kitty who is the sleepiest"
+          ],
+          "keywords": [
+            "Chaps",
+            "Kitty"
+          ],
+          "name": "Chaps Kitty",
+          "description": "Ask Chaps Kitty some things, perhaps Chaps Kitty will have an answer for you.\n\nThe source for the Chaps Kitty skill may be found here:\nhttps://github.com/rmarshall31/chaps_kitty",
+          "smallIconUri": "file://assets/images/en-IN_smallIconUri.png",
+          "largeIconUri": "file://assets/images/en-IN_largeIconUri.png"
+        },
+        "en-AU": {
+          "summary": "Chaps Kitty knows about things that Chaps Kitty might know about",
+          "examplePhrases": [
+            "Alexa ask Chaps Kitty what the current lake level is",
+            "Alexa ask Chaps Kitty to irritate the dogs",
+            "Alexa ask Chaps Kitty who is the sleepiest"
+          ],
+          "keywords": [
+            "Chaps",
+            "Kitty"
+          ],
+          "name": "Chaps Kitty",
+          "description": "Ask Chaps Kitty some things, perhaps Chaps Kitty will have an answer for you.\n\nThe source for the Chaps Kitty skill may be found here:\nhttps://github.com/rmarshall31/chaps_kitty",
+          "smallIconUri": "file://assets/images/en-AU_smallIconUri.png",
+          "largeIconUri": "file://assets/images/en-AU_largeIconUri.png"
+        },
+        "en-GB": {
+          "summary": "Chaps Kitty knows about things that Chaps Kitty might know about",
+          "examplePhrases": [
+            "Alexa ask Chaps Kitty what the current lake level is",
+            "Alexa ask Chaps Kitty to irritate the dogs",
+            "Alexa ask Chaps Kitty who is the sleepiest"
+          ],
+          "keywords": [
+            "Chaps",
+            "Kitty"
+          ],
+          "name": "Chaps Kitty",
+          "description": "Ask Chaps Kitty some things, perhaps Chaps Kitty will have an answer for you.\n\nThe source for the Chaps Kitty skill may be found here:\nhttps://github.com/rmarshall31/chaps_kitty",
+          "smallIconUri": "file://assets/images/en-GB_smallIconUri.png",
+          "largeIconUri": "file://assets/images/en-GB_largeIconUri.png"
+        }
+      },
+      "isAvailableWorldwide": true,
+      "testingInstructions": "Nothing to see here",
+      "category": "EDUCATION_AND_REFERENCE",
+      "distributionCountries": []
+    },
+    "apis": {
+      "custom": {
+        "endpoint": {
+          "uri": "arn:aws:lambda:us-east-1:719902354158:function:ask-ChapsKitty-default-skillSta-AlexaSkillFunction-cEDkQTegR30p"
+        },
+        "interfaces": [
+          {
+            "type": "AUDIO_PLAYER"
+          }
+        ]
+      }
+    },
+    "manifestVersion": "1.0",
+    "privacyAndCompliance": {
+      "allowsPurchases": false,
+      "containsAds": false,
+      "isExportCompliant": true,
+      "isChildDirected": false,
+      "usesPersonalInfo": false
+    }
+  }
+}
