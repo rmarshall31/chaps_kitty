@@ -164,6 +164,62 @@ class TideTests(unittest.TestCase):
             self.assertEqual(ck.handler(event, None), {'ok': True})
 
 
+MARINE_PRODUCT = """
+GMZ856-141315-
+Coastal waters from Bonita Beach to Englewood FL out 20 NM-
+842 PM EDT Sun Sep 13 2026
+
+.OVERNIGHT...North winds around 5 knots. Seas 1 foot or less.
+
+$$
+
+GMZ853-141315-
+Coastal waters from Englewood to Tarpon Springs FL out 20 NM-
+842 PM EDT Sun Sep 13 2026
+
+.OVERNIGHT...Northwest winds around 5 knots, becoming west. Seas
+1 foot or less. Bay and inland waters smooth.
+.MONDAY...Northwest winds 5 to 10 knots. Seas 1 foot or less.
+Bay and inland waters light chop.
+.MONDAY NIGHT...North winds 5 to 10 knots, becoming east after
+midnight. Seas 1 foot or less.
+.TUESDAY...East winds 5 to 10 knots. Seas 1 foot or less.
+
+Winds and seas higher in and near thunderstorms.
+
+$$
+"""
+
+
+class MarineForecastTests(unittest.TestCase):
+    def test_extracts_requested_zone_and_first_three_periods(self):
+        periods = ck.marine_zone_periods(MARINE_PRODUCT)
+        self.assertEqual(len(periods), 4)
+        speech = ck.format_marine_forecast(periods)
+        self.assertIn('National Weather Service Tampa Bay', speech)
+        self.assertIn('Englewood to Tarpon Springs', speech)
+        self.assertIn('Overnight: Northwest winds', speech)
+        self.assertIn('Monday Night: North winds', speech)
+        self.assertNotIn('Tuesday:', speech)
+        self.assertNotIn('Bonita Beach', speech)
+
+    def test_missing_zone_raises(self):
+        with self.assertRaises(ValueError):
+            ck.marine_zone_periods('no marine forecast here')
+
+    def test_get_marine_forecast_survives_nws_failure(self):
+        with mock.patch('chaps_kitty.urllib.request.urlopen', side_effect=URLError('timeout')):
+            result = ck.get_marine_forecast()
+        self.assertIn(
+            'could not find the marine forecast', result['response']['outputSpeech']['text']
+        )
+
+    def test_marine_forecast_intent_routes(self):
+        event = session_event('IntentRequest', 'MarineForecast')
+        with mock.patch('chaps_kitty.get_marine_forecast', return_value={'ok': True}):
+            self.assertEqual(ck.handler(event, None), {'ok': True})
+
+
 WP_POSTS = [
     {
         'date': '2026-08-22T18:28:37',

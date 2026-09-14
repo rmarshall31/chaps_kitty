@@ -15,6 +15,8 @@ LAKE_LANIER_URL = (
 ANGRY_CHAPS_KITTY_MP3 = 'https://s3.amazonaws.com/chapskitty/cat.mp3'
 GULFPORT_STATION = '8726486'
 GULFPORT_TZ = ZoneInfo('America/New_York')
+MARINE_ZONE = 'GMZ853'
+MARINE_PRODUCTS_URL = 'https://api.weather.gov/products/types/CWF/locations/TBW'
 HUBBARDS_REPORTS_URL = (
     'https://www.hubbardsmarina.com/wp-json/wp/v2/posts'
     '?categories=59&per_page=5'
@@ -193,6 +195,47 @@ def get_lake_level():
     return speak('Lake Level', speech_output, speech_output, True)
 
 
+def marine_zone_periods(product_text):
+    marker = f'\n{MARINE_ZONE}-'
+    if marker not in product_text:
+        raise ValueError('marine zone not found')
+    section = product_text.split(marker, 1)[1].split('\n$$', 1)[0]
+    forecast = re.search(r'\n\.(?=[A-Z])', section)
+    if not forecast:
+        raise ValueError('marine forecast not found')
+    periods = re.split(r'\n\.(?=[A-Z])', section[forecast.start() + 2 :])
+    result = []
+    for period in periods:
+        period = re.sub(r'\s+', ' ', period).strip()
+        match = re.match(r'([A-Z][A-Z ]+)\.\.\.(.*)', period)
+        if match:
+            period = f'{match.group(1).title()}: {match.group(2).strip()}'
+        if period:
+            result.append(period)
+    return result
+
+
+def format_marine_forecast(periods):
+    if not periods:
+        raise ValueError('empty marine forecast')
+    forecast = ' '.join(periods[:3])
+    return (
+        'The National Weather Service Tampa Bay forecast for coastal waters '
+        f'from Englewood to Tarpon Springs, out 20 nautical miles, is: {forecast}'
+    )
+
+
+def get_marine_forecast():
+    try:
+        products = http_json(MARINE_PRODUCTS_URL)['@graph']
+        latest_url = products[0]['@id']
+        periods = marine_zone_periods(http_json(latest_url)['productText'])
+        speech_output = format_marine_forecast(periods)
+    except HTTP_OR_MISSING:
+        speech_output = 'Chaps kitty could not find the marine forecast right now.'
+    return speak('NWS Marine Forecast', speech_output, speech_output, True)
+
+
 class _HTMLTextExtractor(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -304,7 +347,8 @@ def get_welcome_response():
     speech_output = (
         'The Chaps Kitty skill can tell you many things that Chaps Kitty '
         'knows, for example, you can ask Chaps Kitty what the current '
-        "lake level is, the tide in Gulfport, or the Hubbard's Marina fishing report."
+        'lake level is, the tide or marine forecast in Gulfport, '
+        "or the Hubbard's Marina fishing report."
     )
     return speak('Welcome', speech_output, REPROMPT, False)
 
@@ -313,7 +357,8 @@ def get_help_response():
     speech_output = (
         'The Chaps Kitty skill can tell you many things that Chaps Kitty '
         'knows, for example, you can ask about the lake level, the '
-        "Gulfport tide, or the Hubbard's Marina fishing report. What would you "
+        "Gulfport tide, marine forecast, or the Hubbard's Marina fishing report. "
+        'What would you '
         'like Chaps Kitty to tell you about?'
     )
     return speak('Welcome', speech_output, REPROMPT, False)
@@ -375,6 +420,8 @@ def on_intent(intent_request, session, event):
         return get_lake_level()
     if intent_name == 'Tide':
         return get_gulfport_tide()
+    if intent_name == 'MarineForecast':
+        return get_marine_forecast()
     if intent_name == 'FishingReport':
         return get_fishing_report()
     if intent_name == 'Schnoozins':
