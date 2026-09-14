@@ -1,2 +1,5 @@
 .idea
 *.pyc
+__pycache__/
+.ask/lambda/
+.ask/*.zip

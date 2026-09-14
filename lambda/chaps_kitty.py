@@ -1,13 +1,17 @@
 import json
 import uuid
+import urllib.error
+import urllib.request
 
-import requests
-
-LAKE_LANIER_URL = "https://waterservices.usgs.gov/nwis/iv/?site=02334400&parameterCd=00062&format=json"
+SKILL_ID = "amzn1.ask.skill.d63439df-7309-4d8a-be34-e223a9850846"
+LAKE_LANIER_URL = (
+    "https://waterservices.usgs.gov/nwis/iv/"
+    "?site=02334400&parameterCd=00062&format=json"
+)
 ANGRY_CHAPS_KITTY_MP3 = "https://s3.amazonaws.com/chapskitty/cat.mp3"
+USGS_TIMEOUT_SECONDS = 5
+USER_AGENT = "chaps-kitty-alexa-skill"
 
-
-# --------------- Helpers that build all of the responses ----------------------
 
 def build_speechlet_response(title, output, reprompt_text, should_end_session):
     return {
@@ -59,85 +63,121 @@ def build_response(session_attributes, speechlet_response):
     }
 
 
-# --------------- Functions that control the skill's behavior ------------------
+def empty_response():
+    return {
+        'version': '1.0',
+        'response': {}
+    }
+
+
+def speak(title, output, reprompt_text, should_end_session,
+          session_attributes=None):
+    attrs = dict(session_attributes or {})
+    attrs['last_speech_output'] = output
+    return build_response(attrs, build_speechlet_response(
+        title, output, reprompt_text, should_end_session))
+
+
+def application_id(event):
+    session_app = (event.get('session') or {}).get('application') or {}
+    if session_app.get('applicationId'):
+        return session_app['applicationId']
+    system = (event.get('context') or {}).get('System') or {}
+    return (system.get('application') or {}).get('applicationId')
+
+
+def audio_player_state(event):
+    player = (event.get('context') or {}).get('AudioPlayer') or {}
+    return (
+        player.get('token') or '',
+        player.get('offsetInMilliseconds') or 0,
+    )
+
+
+def fetch_lake_level():
+    req = urllib.request.Request(
+        LAKE_LANIER_URL,
+        headers={'User-Agent': USER_AGENT},
+    )
+    with urllib.request.urlopen(req, timeout=USGS_TIMEOUT_SECONDS) as resp:
+        data = json.load(resp)
+    return data['value']['timeSeries'][0]['values'][0]['value'][0]['value']
 
 
 def get_lake_level():
-    r = requests.get(LAKE_LANIER_URL)
-    data = json.loads(r.text)
-    lake_level = data["value"]["timeSeries"][0]["values"][0]["value"][0]["value"]
-    session_attributes = {}
-    card_title = "Lake Level"
-    speech_output = f"Lake Lanier is currently {lake_level} feet above sea level"
-    reprompt_text = f"Lake Lanier is currently {lake_level} feet above sea level"
-    should_end_session = True
-    return build_response(session_attributes, build_speechlet_response(
-        card_title, speech_output, reprompt_text, should_end_session))
+    try:
+        lake_level = fetch_lake_level()
+        speech_output = (
+            f"Lake Lanier is currently {lake_level} feet above sea level"
+        )
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError,
+            KeyError, IndexError, TypeError, OSError):
+        speech_output = (
+            "Chaps kitty could not find the lake level right now."
+        )
+    return speak(
+        "Lake Level", speech_output, speech_output, True)
 
 
 def get_the_schnoozinist():
-    session_attributes = {}
-    card_title = "The Schnoozinist"
     speech_output = "Chaps kitty is the schnoozinist kitty"
-    reprompt_text = "Chaps kitty is the schnoozinist kitty"
-    should_end_session = True
-    return build_response(session_attributes, build_speechlet_response(
-        card_title, speech_output, reprompt_text, should_end_session))
+    return speak(
+        "The Schnoozinist", speech_output, speech_output, True)
 
 
 def get_treat_storage_location():
-    session_attributes = {}
-    card_title = "Treat storage"
     speech_output = "In the bellies, the bellies for the treats"
-    reprompt_text = "In the bellies, the bellies for the treats"
-    should_end_session = True
-    return build_response(session_attributes, build_speechlet_response(
-        card_title, speech_output, reprompt_text, should_end_session))
+    return speak(
+        "Treat storage", speech_output, speech_output, True)
 
 
 def get_welcome_response():
-    session_attributes = {}
-    card_title = "Welcome"
-    speech_output = "The Chaps Kitty skill can tell you many things that Chaps Kitty knows, for example, " \
-                    "you can ask Chaps Kitty what the current lake level is."
-    reprompt_text = "Ask Chaps Kitty a question that you think Chaps Kitty might know"
-    should_end_session = False
-    return build_response(session_attributes, build_speechlet_response(
-        card_title, speech_output, reprompt_text, should_end_session))
+    speech_output = (
+        "The Chaps Kitty skill can tell you many things that Chaps Kitty "
+        "knows, for example, you can ask Chaps Kitty what the current "
+        "lake level is."
+    )
+    reprompt_text = (
+        "Ask Chaps Kitty a question that you think Chaps Kitty might know"
+    )
+    return speak("Welcome", speech_output, reprompt_text, False)
 
 
 def get_help_response():
-    session_attributes = {}
-    card_title = "Welcome"
-    speech_output = "The Chaps Kitty skill can tell you many things that Chaps Kitty knows, for example, you can ask" \
-                    "Chaps Kitty what the current lake level is. What would you like Chaps Kitty to tell you about?"
-    reprompt_text = "Ask Chaps Kitty a question that you think Chaps Kitty might know"
-    should_end_session = False
-    return build_response(session_attributes, build_speechlet_response(
-        card_title, speech_output, reprompt_text, should_end_session))
+    speech_output = (
+        "The Chaps Kitty skill can tell you many things that Chaps Kitty "
+        "knows, for example, you can ask Chaps Kitty what the current "
+        "lake level is. What would you like Chaps Kitty to tell you about?"
+    )
+    reprompt_text = (
+        "Ask Chaps Kitty a question that you think Chaps Kitty might know"
+    )
+    return speak("Welcome", speech_output, reprompt_text, False)
 
 
 def handle_session_end_request():
-    card_title = "Session Ended"
-    speech_output = "Please remember the Chaps Kitty skill the next time you have a question that " \
-                    "you think Chaps Kitty may know the answer to."
-    should_end_session = True
-    return build_response({}, build_speechlet_response(
-        card_title, speech_output, None, should_end_session))
+    speech_output = (
+        "Please remember the Chaps Kitty skill the next time you have a "
+        "question that you think Chaps Kitty may know the answer to."
+    )
+    return speak("Session Ended", speech_output, None, True)
 
 
 def handle_repeat_intent(session_attributes):
-    last_speech_output = session_attributes.get('last_speech_output', 'Sorry, I don\'t remember what I said last.')
-    card_title = "Repeat"
-    reprompt_text = last_speech_output
-    should_end_session = False
-    return build_response(session_attributes, build_speechlet_response(
-        card_title, last_speech_output, reprompt_text, should_end_session))
+    last_speech_output = session_attributes.get(
+        'last_speech_output',
+        "Sorry, I don't remember what I said last.",
+    )
+    return speak(
+        "Repeat", last_speech_output, last_speech_output, False,
+        session_attributes)
 
 
-def duck_with_blue_and_chief(token=f"angry-chaps-kitty-{uuid.uuid4()}", offset_in_milliseconds=0):
+def duck_with_blue_and_chief(token=None, offset_in_milliseconds=0):
     print("ducking with blue and chief")
-    response = {
+    if not token:
+        token = f"angry-chaps-kitty-{uuid.uuid4()}"
+    return {
         "version": "1.0",
         "response": {
             "directives": [
@@ -157,11 +197,9 @@ def duck_with_blue_and_chief(token=f"angry-chaps-kitty-{uuid.uuid4()}", offset_i
         }
     }
 
-    return response
-
 
 def handle_pause_intent(session_attributes):
-    response = {
+    return {
         "version": "1.0",
         "sessionAttributes": session_attributes,
         "response": {
@@ -173,12 +211,10 @@ def handle_pause_intent(session_attributes):
             "shouldEndSession": True
         }
     }
-    return response
 
 
-def handle_resume_intent(session_attributes):
-    token = session_attributes.get("token", "")
-    offset_in_milliseconds = session_attributes.get("offsetInMilliseconds", 0)
+def handle_resume_intent(event):
+    token, offset_in_milliseconds = audio_player_state(event)
     return duck_with_blue_and_chief(token, offset_in_milliseconds)
 
 
@@ -194,21 +230,30 @@ def handle_next_intent():
     return duck_with_blue_and_chief()
 
 
-# --------------- Events ------------------
-
 def on_session_started(session_started_request, session):
-    print(f"on_session_started requestId={session_started_request['requestId']}, sessionId={session['sessionId']}")
+    print(
+        f"on_session_started requestId="
+        f"{session_started_request['requestId']}, "
+        f"sessionId={session['sessionId']}"
+    )
 
 
 def on_launch(launch_request, session):
-    print(f"on_launch requestId={launch_request['requestId']}, sessionId={session['sessionId']}")
+    print(
+        f"on_launch requestId={launch_request['requestId']}, "
+        f"sessionId={session.get('sessionId')}"
+    )
     return get_welcome_response()
 
 
-def on_intent(intent_request, session):
-    print(f"on_intent requestId={intent_request['requestId']}, sessionId={session['sessionId']}")
+def on_intent(intent_request, session, event):
+    print(
+        f"on_intent requestId={intent_request['requestId']}, "
+        f"sessionId={session.get('sessionId')}"
+    )
 
     intent_name = intent_request['intent']['name']
+    session_attributes = session.get('attributes') or {}
 
     if intent_name == "LakeLevel":
         return get_lake_level()
@@ -220,16 +265,17 @@ def on_intent(intent_request, session):
         return duck_with_blue_and_chief()
     elif intent_name == "AMAZON.HelpIntent":
         return get_help_response()
-    elif intent_name == "AMAZON.CancelIntent":
-        return handle_session_end_request()
-    elif intent_name == "AMAZON.StopIntent":
+    elif intent_name in (
+            "AMAZON.CancelIntent",
+            "AMAZON.StopIntent",
+            "AMAZON.NavigateHomeIntent"):
         return handle_session_end_request()
     elif intent_name == "AMAZON.RepeatIntent":
-        return handle_repeat_intent(session.get('attributes', {}))
+        return handle_repeat_intent(session_attributes)
     elif intent_name == "AMAZON.PauseIntent":
-        return handle_pause_intent(session.get('attributes', {}))
+        return handle_pause_intent(session_attributes)
     elif intent_name == "AMAZON.ResumeIntent":
-        return handle_resume_intent(session.get('attributes', {}))
+        return handle_resume_intent(event)
     elif intent_name == "AMAZON.PreviousIntent":
         return handle_previous_intent()
     elif intent_name == "AMAZON.StartOverIntent":
@@ -237,27 +283,38 @@ def on_intent(intent_request, session):
     elif intent_name == "AMAZON.NextIntent":
         return handle_next_intent()
 
-    else:
-        raise ValueError("Invalid intent")
+    speech_output = "Chaps kitty does not know about that."
+    return speak("Unknown", speech_output, speech_output, False)
 
 
 def on_session_ended(session_ended_request, session):
-    print(f"on_session_ended requestId={session_ended_request['requestId']}, sessionId={session['sessionId']}")
+    print(
+        f"on_session_ended requestId={session_ended_request['requestId']}, "
+        f"sessionId={session.get('sessionId')}"
+    )
+    return empty_response()
 
-
-# --------------- Main handler ------------------
 
 def handler(event, context):
-    print(f"event.session.application.applicationId={event['session']['application']['applicationId']}")
-
-    if (event['session']['application']['applicationId'] != "amzn1.ask.skill.d63439df-7309-4d8a-be34-e223a9850846"):
+    app_id = application_id(event)
+    print(f"applicationId={app_id}")
+    if app_id != SKILL_ID:
         raise ValueError("Invalid Application ID")
 
-    if event['session']['new']:
-        on_session_started({'requestId': event['request']['requestId']}, event['session'])
-    if event['request']['type'] == "LaunchRequest":
-        return on_launch(event['request'], event['session'])
-    if event['request']['type'] == "IntentRequest":
-        return on_intent(event['request'], event['session'])
-    if event['request']['type'] == "SessionEndedRequest":
-        return on_session_ended(event['request'], event['session'])
+    session = event.get('session') or {}
+    request = event['request']
+    if session.get('new'):
+        on_session_started(
+            {'requestId': request['requestId']}, session)
+
+    request_type = request['type']
+    if request_type == "LaunchRequest":
+        return on_launch(request, session)
+    if request_type == "IntentRequest":
+        return on_intent(request, session, event)
+    if request_type == "SessionEndedRequest":
+        return on_session_ended(request, session)
+    if (request_type.startswith("AudioPlayer.")
+            or request_type == "System.ExceptionEncountered"):
+        return empty_response()
+    return empty_response()

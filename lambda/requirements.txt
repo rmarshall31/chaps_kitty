@@ -1,1 +1,1 @@
-requests
+# Lambda uses the Python stdlib only.
