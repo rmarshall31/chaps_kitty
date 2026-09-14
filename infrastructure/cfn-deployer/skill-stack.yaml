@@ -26,15 +26,8 @@ Resources:
             Action:
               - sts:AssumeRole
       Path: /
-      Policies:
-        - PolicyName: alexaSkillExecutionPolicy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:*
-                Resource: arn:aws:logs:*:*:*
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
   AlexaSkillFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -45,21 +38,14 @@ Resources:
       Handler: !Ref LambdaHandler
       Runtime: !Ref LambdaRuntime
       Role: !GetAtt AlexaSkillIAMRole.Arn
-      MemorySize: 512
-      Timeout: 60
+      MemorySize: 128
+      Timeout: 10
   AlexaSkillFunctionEventPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      Action: lambda:invokeFunction
+      Action: lambda:InvokeFunction
       FunctionName: !GetAtt AlexaSkillFunction.Arn
       Principal: alexa-appkit.amazon.com
-      EventSourceToken: !Ref SkillId
-  AlexaSkillFunctionEventPermissionSmartHome:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:invokeFunction
-      FunctionName: !GetAtt AlexaSkillFunction.Arn
-      Principal: alexa-connectedhome.amazon.com
       EventSourceToken: !Ref SkillId
   AlexaSkillFunctionLogGroup:
     Type: AWS::Logs::LogGroup
