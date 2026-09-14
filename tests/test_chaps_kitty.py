@@ -170,7 +170,7 @@ class TideTests(unittest.TestCase):
         speech = ck.format_tide_speech(events, now)
         self.assertIn("high", speech)
         self.assertIn("2.1 feet", speech)
-        self.assertIn("3 P.M.", speech)
+        self.assertIn("3 PM", speech)
         self.assertIn("low tide", speech)
 
     def test_get_gulfport_tide_survives_noaa_failure(self):
