@@ -1,5 +1,6 @@
 import html
 import json
+import random
 import re
 import urllib.error
 import urllib.request
@@ -7,6 +8,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
 from zoneinfo import ZoneInfo
+
+from cat_breeds import CAT_BREEDS
 
 SKILL_ID = 'amzn1.ask.skill.d63439df-7309-4d8a-be34-e223a9850846'
 LAKE_LANIER_URL = (
@@ -36,6 +39,8 @@ REPORT_CREDIT = (
 )
 # Alexa rejects PlainText output longer than this.
 MAX_SPEECH_CHARS = 8000
+# Offset so cycle zero is not seeded zero; any fixed value works.
+BREED_SEED = 31
 HTTP_TIMEOUT_SECONDS = 5
 USER_AGENT = 'chaps-kitty-alexa-skill'
 REPROMPT = 'Ask Chaps Kitty a question that you think Chaps Kitty might know'
@@ -236,6 +241,39 @@ def get_marine_forecast():
     return speak('NWS Marine Forecast', speech_output, speech_output, True)
 
 
+def _shuffled_order(cycle):
+    order = list(range(len(CAT_BREEDS)))
+    random.Random(BREED_SEED + cycle).shuffle(order)
+    return order
+
+
+def breed_order_for_cycle(cycle):
+    # Independent shuffles can open a cycle on the breed the last one closed
+    # with, so swap the first two slots when they collide. The swap never
+    # touches the last slot, so the previous cycle needs no correction here.
+    order = _shuffled_order(cycle)
+    if cycle and order[0] == _shuffled_order(cycle - 1)[-1]:
+        order[0], order[1] = order[1], order[0]
+    return order
+
+
+def breed_for_day(now):
+    n = len(CAT_BREEDS)
+    ordinal = now.toordinal()
+    return CAT_BREEDS[breed_order_for_cycle(ordinal // n)[ordinal % n]]
+
+
+def format_breed_of_the_day(breed):
+    name, origin, blurb = breed
+    return f"Today's cat breed is the {name}, from {origin}. {blurb}"
+
+
+def get_cat_breed_of_the_day(now=None):
+    now = now or datetime.now(GULFPORT_TZ)
+    speech_output = format_breed_of_the_day(breed_for_day(now))
+    return speak('Cat Breed of the Day', speech_output, speech_output, True)
+
+
 class _HTMLTextExtractor(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -348,7 +386,7 @@ def get_welcome_response():
         'The Chaps Kitty skill can tell you many things that Chaps Kitty '
         'knows, for example, you can ask Chaps Kitty what the current '
         'lake level is, the tide or marine forecast in Gulfport, '
-        "or the Hubbard's Marina fishing report."
+        "the Hubbard's Marina fishing report, or the cat breed of the day."
     )
     return speak('Welcome', speech_output, REPROMPT, False)
 
@@ -357,8 +395,8 @@ def get_help_response():
     speech_output = (
         'The Chaps Kitty skill can tell you many things that Chaps Kitty '
         'knows, for example, you can ask about the lake level, the '
-        "Gulfport tide, marine forecast, or the Hubbard's Marina fishing report. "
-        'What would you '
+        "Gulfport tide, marine forecast, Hubbard's Marina fishing report, "
+        'or the cat breed of the day. What would you '
         'like Chaps Kitty to tell you about?'
     )
     return speak('Welcome', speech_output, REPROMPT, False)
@@ -424,6 +462,8 @@ def on_intent(intent_request, session, event):
         return get_marine_forecast()
     if intent_name == 'FishingReport':
         return get_fishing_report()
+    if intent_name == 'CatBreedOfTheDay':
+        return get_cat_breed_of_the_day()
     if intent_name == 'Schnoozins':
         return speak(
             'The Schnoozinist',

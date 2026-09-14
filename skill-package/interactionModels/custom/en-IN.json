@@ -157,6 +157,26 @@
           ]
         },
         {
+          "name": "CatBreedOfTheDay",
+          "slots": [],
+          "samples": [
+            "cat breed of the day",
+            "the cat breed of the day",
+            "what's the cat breed of the day",
+            "what is the cat breed of the day",
+            "today's cat breed",
+            "what's today's cat breed",
+            "what is today's cat breed",
+            "today's cat",
+            "what cat is it today",
+            "what's today's cat",
+            "breed of the day",
+            "cat of the day",
+            "tell me about a cat breed",
+            "tell me today's cat"
+          ]
+        },
+        {
           "name": "Schnoozins",
           "slots": [],
           "samples": [

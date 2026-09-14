@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 from urllib.error import URLError
+from datetime import datetime, timedelta
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lambda'))
 
@@ -306,6 +307,72 @@ class FishingReportTests(unittest.TestCase):
     def test_fishing_report_intent_routes(self):
         event = session_event('IntentRequest', 'FishingReport')
         with mock.patch('chaps_kitty.get_fishing_report', return_value={'ok': True}):
+            self.assertEqual(ck.handler(event, None), {'ok': True})
+
+
+def cycle_start(cycle_offset=0):
+    n = len(ck.CAT_BREEDS)
+    cycle = datetime(2026, 1, 1).toordinal() // n + cycle_offset
+    return datetime.fromordinal(cycle * n).replace(tzinfo=ck.GULFPORT_TZ)
+
+
+class CatBreedOfTheDayTests(unittest.TestCase):
+    def test_catalog_is_complete_and_unique(self):
+        names = [name for name, origin, blurb in ck.CAT_BREEDS]
+        self.assertEqual(len(names), len(set(names)))
+        for breed in ck.CAT_BREEDS:
+            name, origin, blurb = breed
+            self.assertTrue(name)
+            self.assertTrue(origin)
+            self.assertTrue(blurb)
+            self.assertLess(len(ck.format_breed_of_the_day(breed)), ck.MAX_SPEECH_CHARS, name)
+
+    def test_same_calendar_day_is_the_same_breed(self):
+        morning = datetime(2026, 9, 13, 8, tzinfo=ck.GULFPORT_TZ)
+        night = datetime(2026, 9, 13, 23, tzinfo=ck.GULFPORT_TZ)
+        self.assertEqual(ck.breed_for_day(morning), ck.breed_for_day(night))
+
+    def test_next_day_advances(self):
+        today = datetime(2026, 9, 13, tzinfo=ck.GULFPORT_TZ)
+        tomorrow = today + timedelta(days=1)
+        self.assertNotEqual(ck.breed_for_day(today), ck.breed_for_day(tomorrow))
+
+    def test_cycle_boundary_does_not_repeat_a_breed(self):
+        # Boundaries are the only place two adjacent days come from different
+        # shuffles. Forty years of them.
+        for offset in range(200):
+            eve = cycle_start(offset) - timedelta(days=1)
+            self.assertNotEqual(
+                ck.breed_for_day(eve), ck.breed_for_day(eve + timedelta(days=1)), eve.date()
+            )
+
+    def test_rotation_is_a_shuffle_of_every_breed(self):
+        n = len(ck.CAT_BREEDS)
+        start = cycle_start()
+        seen = [ck.breed_for_day(start + timedelta(days=i))[0] for i in range(n)]
+        self.assertEqual(sorted(seen), sorted(name for name, _, _ in ck.CAT_BREEDS))
+        catalog = [name for name, _, _ in ck.CAT_BREEDS]
+        self.assertNotEqual(seen, catalog)
+
+    def test_next_cycle_is_a_different_shuffle(self):
+        n = len(ck.CAT_BREEDS)
+        start = cycle_start()
+        first = [ck.breed_for_day(start + timedelta(days=i))[0] for i in range(n)]
+        second = [ck.breed_for_day(start + timedelta(days=n + i))[0] for i in range(n)]
+        self.assertEqual(sorted(first), sorted(second))
+        self.assertNotEqual(first, second)
+
+    def test_speech_names_the_breed(self):
+        now = datetime(2026, 9, 13, tzinfo=ck.GULFPORT_TZ)
+        name, origin, _ = ck.breed_for_day(now)
+        speech = ck.get_cat_breed_of_the_day(now)['response']['outputSpeech']['text']
+        self.assertIn(name, speech)
+        self.assertIn(origin, speech)
+        self.assertTrue(speech.startswith("Today's cat breed is the "))
+
+    def test_intent_routes(self):
+        event = session_event('IntentRequest', 'CatBreedOfTheDay')
+        with mock.patch('chaps_kitty.get_cat_breed_of_the_day', return_value={'ok': True}):
             self.assertEqual(ck.handler(event, None), {'ok': True})
 
 
