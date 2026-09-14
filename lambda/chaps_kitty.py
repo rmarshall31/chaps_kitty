@@ -2,6 +2,8 @@ import json
 import uuid
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 SKILL_ID = "amzn1.ask.skill.d63439df-7309-4d8a-be34-e223a9850846"
 LAKE_LANIER_URL = (
@@ -9,7 +11,9 @@ LAKE_LANIER_URL = (
     "?site=02334400&parameterCd=00062&format=json"
 )
 ANGRY_CHAPS_KITTY_MP3 = "https://s3.amazonaws.com/chapskitty/cat.mp3"
-USGS_TIMEOUT_SECONDS = 5
+GULFPORT_STATION = "8726486"
+GULFPORT_TZ = ZoneInfo("America/New_York")
+HTTP_TIMEOUT_SECONDS = 5
 USER_AGENT = "chaps-kitty-alexa-skill"
 
 
@@ -94,14 +98,106 @@ def audio_player_state(event):
     )
 
 
-def fetch_lake_level():
+def http_json(url):
     req = urllib.request.Request(
-        LAKE_LANIER_URL,
+        url,
         headers={'User-Agent': USER_AGENT},
     )
-    with urllib.request.urlopen(req, timeout=USGS_TIMEOUT_SECONDS) as resp:
-        data = json.load(resp)
+    with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:
+        return json.load(resp)
+
+
+def fetch_lake_level():
+    data = http_json(LAKE_LANIER_URL)
     return data['value']['timeSeries'][0]['values'][0]['value'][0]['value']
+
+
+def tide_predictions_url(now=None):
+    now = now or datetime.now(GULFPORT_TZ)
+    start = now.strftime("%Y%m%d")
+    return (
+        "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+        f"?begin_date={start}&range=48&station={GULFPORT_STATION}"
+        "&product=predictions&datum=MLLW&time_zone=lst_ldt"
+        "&units=english&interval=hilo&format=json"
+        f"&application={USER_AGENT}"
+    )
+
+
+def fetch_tide_predictions(now=None):
+    data = http_json(tide_predictions_url(now))
+    return data['predictions']
+
+
+def parse_tide_time(value):
+    return datetime.strptime(value, "%Y-%m-%d %H:%M").replace(
+        tzinfo=GULFPORT_TZ)
+
+
+def upcoming_tides(predictions, now):
+    events = []
+    for row in predictions:
+        when = parse_tide_time(row['t'])
+        if when < now:
+            continue
+        kind = 'high' if row.get('type') == 'H' else 'low'
+        events.append((when, kind, row['v']))
+        if len(events) == 2:
+            break
+    return events
+
+
+def format_tide_height(value):
+    feet = round(float(value), 1)
+    if feet == int(feet):
+        return f"{int(feet)} feet"
+    return f"{feet} feet"
+
+
+def format_tide_clock(when):
+    text = when.strftime("%-I:%M %p").replace(":00 ", " ")
+    return text.replace("AM", "A.M.").replace("PM", "P.M.")
+
+
+def format_tide_when(when, now):
+    clock = format_tide_clock(when)
+    if when.date() == now.date():
+        return f"at {clock}"
+    if when.date() == (now + timedelta(days=1)).date():
+        return f"tomorrow at {clock}"
+    return f"on {when.strftime('%A')} at {clock}"
+
+
+def format_tide_speech(events, now):
+    first_when, first_kind, first_height = events[0]
+    speech = (
+        f"The next tide at Gulfport is {first_kind}, "
+        f"{format_tide_height(first_height)}, "
+        f"{format_tide_when(first_when, now)}."
+    )
+    if len(events) > 1:
+        next_when, next_kind, next_height = events[1]
+        speech += (
+            f" After that, {next_kind} tide is "
+            f"{format_tide_height(next_height)} "
+            f"{format_tide_when(next_when, now)}."
+        )
+    return speech
+
+
+def get_gulfport_tide(now=None):
+    now = now or datetime.now(GULFPORT_TZ)
+    try:
+        events = upcoming_tides(fetch_tide_predictions(now), now)
+        if not events:
+            raise ValueError("no upcoming tides")
+        speech_output = format_tide_speech(events, now)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError,
+            KeyError, IndexError, TypeError, OSError, ValueError):
+        speech_output = (
+            "Chaps kitty could not find the Gulfport tide right now."
+        )
+    return speak("Tide", speech_output, speech_output, True)
 
 
 def get_lake_level():
@@ -135,7 +231,7 @@ def get_welcome_response():
     speech_output = (
         "The Chaps Kitty skill can tell you many things that Chaps Kitty "
         "knows, for example, you can ask Chaps Kitty what the current "
-        "lake level is."
+        "lake level is, or what the tide is in Gulfport."
     )
     reprompt_text = (
         "Ask Chaps Kitty a question that you think Chaps Kitty might know"
@@ -146,8 +242,8 @@ def get_welcome_response():
 def get_help_response():
     speech_output = (
         "The Chaps Kitty skill can tell you many things that Chaps Kitty "
-        "knows, for example, you can ask Chaps Kitty what the current "
-        "lake level is. What would you like Chaps Kitty to tell you about?"
+        "knows, for example, you can ask about the lake level or the "
+        "Gulfport tide. What would you like Chaps Kitty to tell you about?"
     )
     reprompt_text = (
         "Ask Chaps Kitty a question that you think Chaps Kitty might know"
@@ -257,6 +353,8 @@ def on_intent(intent_request, session, event):
 
     if intent_name == "LakeLevel":
         return get_lake_level()
+    elif intent_name == "Tide":
+        return get_gulfport_tide()
     elif intent_name == "Schnoozins":
         return get_the_schnoozinist()
     elif intent_name == "Treats":

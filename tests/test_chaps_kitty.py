@@ -154,5 +154,41 @@ class LakeLevelTests(unittest.TestCase):
             result["response"]["outputSpeech"]["text"])
 
 
+class TideTests(unittest.TestCase):
+    def test_upcoming_tides_skips_past_and_takes_next_two(self):
+        now = ck.parse_tide_time("2026-09-13 12:00")
+        predictions = [
+            {"t": "2026-09-13 01:53", "v": "2.25", "type": "H"},
+            {"t": "2026-09-13 09:03", "v": "0.541", "type": "L"},
+            {"t": "2026-09-13 15:00", "v": "2.109", "type": "H"},
+            {"t": "2026-09-13 20:59", "v": "1.187", "type": "L"},
+        ]
+        events = ck.upcoming_tides(predictions, now)
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0][1], "high")
+        self.assertEqual(events[1][1], "low")
+        speech = ck.format_tide_speech(events, now)
+        self.assertIn("high", speech)
+        self.assertIn("2.1 feet", speech)
+        self.assertIn("3 P.M.", speech)
+        self.assertIn("low tide", speech)
+
+    def test_get_gulfport_tide_survives_noaa_failure(self):
+        with mock.patch(
+                "chaps_kitty.urllib.request.urlopen",
+                side_effect=URLError("timeout")):
+            result = ck.get_gulfport_tide()
+        self.assertIn(
+            "could not find the Gulfport tide",
+            result["response"]["outputSpeech"]["text"])
+
+    def test_tide_intent_routes(self):
+        event = session_event("IntentRequest", "Tide")
+        with mock.patch(
+                "chaps_kitty.get_gulfport_tide",
+                return_value={"ok": True}):
+            self.assertEqual(ck.handler(event, None), {"ok": True})
+
+
 if __name__ == "__main__":
     unittest.main()

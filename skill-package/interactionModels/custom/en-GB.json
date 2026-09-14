@@ -71,6 +71,30 @@
           ]
         },
         {
+          "name": "Tide",
+          "slots": [],
+          "samples": [
+            "what's the tide",
+            "what is the tide",
+            "what's the current tide",
+            "what is the current tide",
+            "what the tide is",
+            "what's the gulfport tide",
+            "what is the gulfport tide",
+            "what's the tide in gulfport",
+            "what is the tide in gulfport",
+            "gulfport tide",
+            "tides",
+            "high tide",
+            "low tide",
+            "when is high tide",
+            "when is low tide",
+            "when is the next tide",
+            "what are the tides",
+            "what are the tides in gulfport"
+          ]
+        },
+        {
           "name": "Schnoozins",
           "slots": [],
           "samples": [
