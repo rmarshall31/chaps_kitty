@@ -1,0 +1,17 @@
+#!/bin/sh
+# Fail the commit if ruff is missing or the Python tree is dirty after it.
+set -e
+
+if ! command -v ruff >/dev/null 2>&1; then
+    echo "ruff not found; brew install ruff" >&2
+    exit 1
+fi
+
+ruff check --fix lambda tests
+ruff format lambda tests
+
+if ! git diff --quiet -- lambda tests pyproject.toml; then
+    echo "ruff changed files; stage them and commit again" >&2
+    git diff -- lambda tests pyproject.toml >&2
+    exit 1
+fi

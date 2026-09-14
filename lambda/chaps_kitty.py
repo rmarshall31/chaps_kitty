@@ -1,72 +1,67 @@
+import html
 import json
-import uuid
+import re
 import urllib.error
 import urllib.request
-from datetime import datetime, timedelta
+import uuid
+from datetime import UTC, datetime, timedelta
+from html.parser import HTMLParser
 from zoneinfo import ZoneInfo
 
-SKILL_ID = "amzn1.ask.skill.d63439df-7309-4d8a-be34-e223a9850846"
+SKILL_ID = 'amzn1.ask.skill.d63439df-7309-4d8a-be34-e223a9850846'
 LAKE_LANIER_URL = (
-    "https://waterservices.usgs.gov/nwis/iv/"
-    "?site=02334400&parameterCd=00062&format=json"
+    'https://waterservices.usgs.gov/nwis/iv/?site=02334400&parameterCd=00062&format=json'
 )
-ANGRY_CHAPS_KITTY_MP3 = "https://s3.amazonaws.com/chapskitty/cat.mp3"
-GULFPORT_STATION = "8726486"
-GULFPORT_TZ = ZoneInfo("America/New_York")
+ANGRY_CHAPS_KITTY_MP3 = 'https://s3.amazonaws.com/chapskitty/cat.mp3'
+GULFPORT_STATION = '8726486'
+GULFPORT_TZ = ZoneInfo('America/New_York')
+HUBBARDS_REPORTS_URL = (
+    'https://www.hubbardsmarina.com/wp-json/wp/v2/posts'
+    '?categories=59&per_page=5'
+    '&_fields=date,date_gmt,slug,title,excerpt'
+)
 HTTP_TIMEOUT_SECONDS = 5
-USER_AGENT = "chaps-kitty-alexa-skill"
-REPROMPT = (
-    "Ask Chaps Kitty a question that you think Chaps Kitty might know"
-)
+USER_AGENT = 'chaps-kitty-alexa-skill'
+REPROMPT = 'Ask Chaps Kitty a question that you think Chaps Kitty might know'
 HTTP_FETCH_ERRORS = (
-    urllib.error.URLError, TimeoutError, json.JSONDecodeError,
-    KeyError, IndexError, TypeError, OSError,
+    urllib.error.URLError,
+    TimeoutError,
+    json.JSONDecodeError,
+    KeyError,
+    IndexError,
+    TypeError,
+    OSError,
 )
+HTTP_OR_MISSING = (*HTTP_FETCH_ERRORS, ValueError)
 PLAY_INTENTS = (
-    "AntagonizeDogs",
-    "AMAZON.PreviousIntent",
-    "AMAZON.StartOverIntent",
-    "AMAZON.NextIntent",
+    'AntagonizeDogs',
+    'AMAZON.PreviousIntent',
+    'AMAZON.StartOverIntent',
+    'AMAZON.NextIntent',
 )
 END_INTENTS = (
-    "AMAZON.CancelIntent",
-    "AMAZON.StopIntent",
-    "AMAZON.NavigateHomeIntent",
+    'AMAZON.CancelIntent',
+    'AMAZON.StopIntent',
+    'AMAZON.NavigateHomeIntent',
 )
 
 
 def empty_response():
-    return {
-        'version': '1.0',
-        'response': {}
-    }
+    return {'version': '1.0', 'response': {}}
 
 
-def speak(title, output, reprompt_text, should_end_session,
-          session_attributes=None):
+def speak(title, output, reprompt_text, should_end_session, session_attributes=None):
     attrs = dict(session_attributes or {})
     attrs['last_speech_output'] = output
     return {
         'version': '1.0',
         'sessionAttributes': attrs,
         'response': {
-            'outputSpeech': {
-                'type': 'PlainText',
-                'text': output
-            },
-            'card': {
-                'type': 'Simple',
-                'title': title,
-                'content': output
-            },
-            'reprompt': {
-                'outputSpeech': {
-                    'type': 'PlainText',
-                    'text': reprompt_text
-                }
-            },
-            'shouldEndSession': should_end_session
-        }
+            'outputSpeech': {'type': 'PlainText', 'text': output},
+            'card': {'type': 'Simple', 'title': title, 'content': output},
+            'reprompt': {'outputSpeech': {'type': 'PlainText', 'text': reprompt_text}},
+            'shouldEndSession': should_end_session,
+        },
     }
 
 
@@ -102,19 +97,18 @@ def fetch_lake_level():
 
 def tide_predictions_url(now=None):
     now = now or datetime.now(GULFPORT_TZ)
-    start = now.strftime("%Y%m%d")
+    start = now.strftime('%Y%m%d')
     return (
-        "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-        f"?begin_date={start}&range=48&station={GULFPORT_STATION}"
-        "&product=predictions&datum=MLLW&time_zone=lst_ldt"
-        "&units=english&interval=hilo&format=json"
-        f"&application={USER_AGENT}"
+        'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter'
+        f'?begin_date={start}&range=48&station={GULFPORT_STATION}'
+        '&product=predictions&datum=MLLW&time_zone=lst_ldt'
+        '&units=english&interval=hilo&format=json'
+        f'&application={USER_AGENT}'
     )
 
 
 def parse_tide_time(value):
-    return datetime.strptime(value, "%Y-%m-%d %H:%M").replace(
-        tzinfo=GULFPORT_TZ)
+    return datetime.strptime(value, '%Y-%m-%d %H:%M').replace(tzinfo=GULFPORT_TZ)
 
 
 def upcoming_tides(predictions, now):
@@ -133,32 +127,32 @@ def upcoming_tides(predictions, now):
 def format_tide_height(value):
     feet = round(float(value), 1)
     if feet == int(feet):
-        return f"{int(feet)} feet"
-    return f"{feet} feet"
+        return f'{int(feet)} feet'
+    return f'{feet} feet'
 
 
 def format_tide_when(when, now):
-    clock = when.strftime("%-I:%M %p").replace(":00 ", " ")
+    clock = when.strftime('%-I:%M %p').replace(':00 ', ' ')
     if when.date() == now.date():
-        return f"at {clock}"
+        return f'at {clock}'
     if when.date() == (now + timedelta(days=1)).date():
-        return f"tomorrow at {clock}"
-    return f"on {when.strftime('%A')} at {clock}"
+        return f'tomorrow at {clock}'
+    return f'on {when.strftime("%A")} at {clock}'
 
 
 def format_tide_speech(events, now):
     first_when, first_kind, first_height = events[0]
     speech = (
-        f"The next tide at Gulfport is {first_kind}, "
-        f"{format_tide_height(first_height)}, "
-        f"{format_tide_when(first_when, now)}."
+        f'The next tide at Gulfport is {first_kind}, '
+        f'{format_tide_height(first_height)}, '
+        f'{format_tide_when(first_when, now)}.'
     )
     if len(events) > 1:
         next_when, next_kind, next_height = events[1]
         speech += (
-            f" After that, {next_kind} tide is "
-            f"{format_tide_height(next_height)} "
-            f"{format_tide_when(next_when, now)}."
+            f' After that, {next_kind} tide is '
+            f'{format_tide_height(next_height)} '
+            f'{format_tide_when(next_when, now)}.'
         )
     return speech
 
@@ -169,53 +163,139 @@ def get_gulfport_tide(now=None):
         data = http_json(tide_predictions_url(now))
         events = upcoming_tides(data['predictions'], now)
         if not events:
-            raise ValueError("no upcoming tides")
+            raise ValueError('no upcoming tides')
         speech_output = format_tide_speech(events, now)
-    except HTTP_FETCH_ERRORS + (ValueError,):
-        speech_output = (
-            "Chaps kitty could not find the Gulfport tide right now."
-        )
-    return speak("Tide", speech_output, speech_output, True)
+    except HTTP_OR_MISSING:
+        speech_output = 'Chaps kitty could not find the Gulfport tide right now.'
+    return speak('Tide', speech_output, speech_output, True)
 
 
 def get_lake_level():
     try:
         lake_level = fetch_lake_level()
-        speech_output = (
-            f"Lake Lanier is currently {lake_level} feet above sea level"
-        )
+        speech_output = f'Lake Lanier is currently {lake_level} feet above sea level'
     except HTTP_FETCH_ERRORS:
-        speech_output = (
-            "Chaps kitty could not find the lake level right now."
-        )
-    return speak(
-        "Lake Level", speech_output, speech_output, True)
+        speech_output = 'Chaps kitty could not find the lake level right now.'
+    return speak('Lake Level', speech_output, speech_output, True)
+
+
+class _HTMLTextExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+        self._skip = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ('script', 'style'):
+            self._skip = True
+
+    def handle_endtag(self, tag):
+        if tag in ('script', 'style'):
+            self._skip = False
+        if tag in ('p', 'br', 'div', 'h1', 'h2', 'h3', 'li'):
+            self.parts.append(' ')
+
+    def handle_data(self, data):
+        if not self._skip:
+            self.parts.append(data)
+
+
+def html_to_text(value):
+    parser = _HTMLTextExtractor()
+    parser.feed(value or '')
+    text = html.unescape(''.join(parser.parts))
+    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r'\[(?:…|&hellip;|\.\.\.)\]$', '', text).strip()
+    return text
+
+
+def parse_wp_datetime(value):
+    return datetime.strptime(value, '%Y-%m-%dT%H:%M:%S').replace(tzinfo=UTC)
+
+
+def ordinal_day(day):
+    if 10 <= day % 100 <= 20:
+        suffix = 'th'
+    else:
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
+    return f'{day}{suffix}'
+
+
+def format_report_date(when):
+    return when.strftime('%B ') + ordinal_day(when.day)
+
+
+def format_report_age(published, now):
+    days = (now.date() - published.date()).days
+    if days <= 0:
+        return 'today'
+    if days == 1:
+        return '1 day old'
+    return f'{days} days old'
+
+
+def is_fishing_report(post):
+    title = html_to_text(post.get('title', {}).get('rendered', '')).lower()
+    slug = (post.get('slug') or '').lower()
+    return 'fishing report' in title or 'fishing-report' in slug
+
+
+def latest_fishing_report(posts):
+    for post in posts:
+        if is_fishing_report(post):
+            return post
+    raise ValueError('no fishing report')
+
+
+def format_fishing_report_speech(post, now):
+    published = parse_wp_datetime(post.get('date_gmt') or post['date']).astimezone(GULFPORT_TZ)
+    age = format_report_age(published, now)
+    date_text = format_report_date(published)
+    summary = html_to_text(post.get('excerpt', {}).get('rendered', ''))
+    if not summary:
+        raise ValueError('empty fishing report')
+    speech = f"Hubbard's latest fishing report is from {date_text}. That's {age}."
+    if (now.date() - published.date()).days > 7:
+        speech += ' They usually post weekly.'
+    speech += f' {summary}'
+    return speech
+
+
+def get_fishing_report(now=None):
+    now = now or datetime.now(GULFPORT_TZ)
+    try:
+        posts = http_json(HUBBARDS_REPORTS_URL)
+        speech_output = format_fishing_report_speech(latest_fishing_report(posts), now)
+    except HTTP_OR_MISSING:
+        speech_output = "Chaps kitty could not find the Hubbard's fishing report right now."
+    return speak('Fishing Report', speech_output, speech_output, True)
 
 
 def get_welcome_response():
     speech_output = (
-        "The Chaps Kitty skill can tell you many things that Chaps Kitty "
-        "knows, for example, you can ask Chaps Kitty what the current "
-        "lake level is, or what the tide is in Gulfport."
+        'The Chaps Kitty skill can tell you many things that Chaps Kitty '
+        'knows, for example, you can ask Chaps Kitty what the current '
+        "lake level is, the tide in Gulfport, or Hubbard's fishing report."
     )
-    return speak("Welcome", speech_output, REPROMPT, False)
+    return speak('Welcome', speech_output, REPROMPT, False)
 
 
 def get_help_response():
     speech_output = (
-        "The Chaps Kitty skill can tell you many things that Chaps Kitty "
-        "knows, for example, you can ask about the lake level or the "
-        "Gulfport tide. What would you like Chaps Kitty to tell you about?"
+        'The Chaps Kitty skill can tell you many things that Chaps Kitty '
+        'knows, for example, you can ask about the lake level, the '
+        "Gulfport tide, or Hubbard's fishing report. What would you "
+        'like Chaps Kitty to tell you about?'
     )
-    return speak("Welcome", speech_output, REPROMPT, False)
+    return speak('Welcome', speech_output, REPROMPT, False)
 
 
 def handle_session_end_request():
     speech_output = (
-        "Please remember the Chaps Kitty skill the next time you have a "
-        "question that you think Chaps Kitty may know the answer to."
+        'Please remember the Chaps Kitty skill the next time you have a '
+        'question that you think Chaps Kitty may know the answer to.'
     )
-    return speak("Session Ended", speech_output, None, True)
+    return speak('Session Ended', speech_output, None, True)
 
 
 def handle_repeat_intent(session_attributes):
@@ -223,47 +303,38 @@ def handle_repeat_intent(session_attributes):
         'last_speech_output',
         "Sorry, I don't remember what I said last.",
     )
-    return speak(
-        "Repeat", last_speech_output, last_speech_output, False,
-        session_attributes)
+    return speak('Repeat', last_speech_output, last_speech_output, False, session_attributes)
 
 
 def duck_with_blue_and_chief(token=None, offset_in_milliseconds=0):
     if not token:
-        token = f"angry-chaps-kitty-{uuid.uuid4()}"
+        token = f'angry-chaps-kitty-{uuid.uuid4()}'
     return {
-        "version": "1.0",
-        "response": {
-            "directives": [
+        'version': '1.0',
+        'response': {
+            'directives': [
                 {
-                    "type": "AudioPlayer.Play",
-                    "playBehavior": "REPLACE_ALL",
-                    "audioItem": {
-                        "stream": {
-                            "token": token,
-                            "url": ANGRY_CHAPS_KITTY_MP3,
-                            "offsetInMilliseconds": offset_in_milliseconds
+                    'type': 'AudioPlayer.Play',
+                    'playBehavior': 'REPLACE_ALL',
+                    'audioItem': {
+                        'stream': {
+                            'token': token,
+                            'url': ANGRY_CHAPS_KITTY_MP3,
+                            'offsetInMilliseconds': offset_in_milliseconds,
                         }
-                    }
+                    },
                 }
             ],
-            "shouldEndSession": True
-        }
+            'shouldEndSession': True,
+        },
     }
 
 
 def handle_pause_intent(session_attributes):
     return {
-        "version": "1.0",
-        "sessionAttributes": session_attributes,
-        "response": {
-            "directives": [
-                {
-                    "type": "AudioPlayer.Stop"
-                }
-            ],
-            "shouldEndSession": True
-        }
+        'version': '1.0',
+        'sessionAttributes': session_attributes,
+        'response': {'directives': [{'type': 'AudioPlayer.Stop'}], 'shouldEndSession': True},
     }
 
 
@@ -271,48 +342,52 @@ def on_intent(intent_request, session, event):
     intent_name = intent_request['intent']['name']
     session_attributes = session.get('attributes') or {}
 
-    if intent_name == "LakeLevel":
+    if intent_name == 'LakeLevel':
         return get_lake_level()
-    if intent_name == "Tide":
+    if intent_name == 'Tide':
         return get_gulfport_tide()
-    if intent_name == "Schnoozins":
+    if intent_name == 'FishingReport':
+        return get_fishing_report()
+    if intent_name == 'Schnoozins':
         return speak(
-            "The Schnoozinist",
-            "Chaps kitty is the schnoozinist kitty",
-            "Chaps kitty is the schnoozinist kitty",
-            True)
-    if intent_name == "Treats":
+            'The Schnoozinist',
+            'Chaps kitty is the schnoozinist kitty',
+            'Chaps kitty is the schnoozinist kitty',
+            True,
+        )
+    if intent_name == 'Treats':
         return speak(
-            "Treat storage",
-            "In the bellies, the bellies for the treats",
-            "In the bellies, the bellies for the treats",
-            True)
+            'Treat storage',
+            'In the bellies, the bellies for the treats',
+            'In the bellies, the bellies for the treats',
+            True,
+        )
     if intent_name in PLAY_INTENTS:
         return duck_with_blue_and_chief()
-    if intent_name == "AMAZON.HelpIntent":
+    if intent_name == 'AMAZON.HelpIntent':
         return get_help_response()
     if intent_name in END_INTENTS:
         return handle_session_end_request()
-    if intent_name == "AMAZON.RepeatIntent":
+    if intent_name == 'AMAZON.RepeatIntent':
         return handle_repeat_intent(session_attributes)
-    if intent_name == "AMAZON.PauseIntent":
+    if intent_name == 'AMAZON.PauseIntent':
         return handle_pause_intent(session_attributes)
-    if intent_name == "AMAZON.ResumeIntent":
+    if intent_name == 'AMAZON.ResumeIntent':
         return duck_with_blue_and_chief(*audio_player_state(event))
 
-    speech_output = "Chaps kitty does not know about that."
-    return speak("Unknown", speech_output, speech_output, False)
+    speech_output = 'Chaps kitty does not know about that.'
+    return speak('Unknown', speech_output, speech_output, False)
 
 
 def handler(event, context):
     if application_id(event) != SKILL_ID:
-        raise ValueError("Invalid Application ID")
+        raise ValueError('Invalid Application ID')
 
     session = event.get('session') or {}
     request = event['request']
     request_type = request['type']
-    if request_type == "LaunchRequest":
+    if request_type == 'LaunchRequest':
         return get_welcome_response()
-    if request_type == "IntentRequest":
+    if request_type == 'IntentRequest':
         return on_intent(request, session, event)
     return empty_response()

@@ -95,6 +95,26 @@
           ]
         },
         {
+          "name": "FishingReport",
+          "slots": [],
+          "samples": [
+            "fishing report",
+            "the fishing report",
+            "what's the fishing report",
+            "what is the fishing report",
+            "what's the latest fishing report",
+            "what is the latest fishing report",
+            "hubbards fishing report",
+            "hubbard's fishing report",
+            "hubbards marina fishing report",
+            "how's the fishing",
+            "how is the fishing",
+            "how's fishing",
+            "what's biting",
+            "what is biting"
+          ]
+        },
+        {
           "name": "Schnoozins",
           "slots": [],
           "samples": [
