@@ -18,8 +18,22 @@ GULFPORT_TZ = ZoneInfo('America/New_York')
 HUBBARDS_REPORTS_URL = (
     'https://www.hubbardsmarina.com/wp-json/wp/v2/posts'
     '?categories=59&per_page=5'
-    '&_fields=date,date_gmt,slug,title,excerpt'
+    '&_fields=date,date_gmt,slug,title,content'
 )
+# Every report ends with the same Descend Act notice, glossary, and sign-off.
+REPORT_BOILERPLATE = re.compile(
+    r'TERMS OF REFERENCE'
+    r'|Remember that when fishing in deeper'
+    r'|Don[\u2019\']t forget, that we have some great videos'
+    r'|Remember our family motto'
+    r'|Thank you for reading',
+)
+REPORT_CREDIT = (
+    " That report is written by Captain Dylan Hubbard of Hubbard's Marina "
+    'in Madeira Beach, Florida, and published at hubbardsmarina.com.'
+)
+# Alexa rejects PlainText output longer than this.
+MAX_SPEECH_CHARS = 8000
 HTTP_TIMEOUT_SECONDS = 5
 USER_AGENT = 'chaps-kitty-alexa-skill'
 REPROMPT = 'Ask Chaps Kitty a question that you think Chaps Kitty might know'
@@ -247,18 +261,33 @@ def latest_fishing_report(posts):
     raise ValueError('no fishing report')
 
 
+def report_body(post):
+    text = html_to_text(post.get('content', {}).get('rendered', ''))
+    match = REPORT_BOILERPLATE.search(text)
+    if match:
+        text = text[: match.start()]
+    text = re.sub(r'(?:https?://|www\.)\S+', '', text)
+    return re.sub(r'\s+', ' ', text).strip(' .')
+
+
+def trim_to_sentence(text, limit):
+    if len(text) <= limit:
+        return text
+    end = text.rfind('. ', 0, limit)
+    return text[: end + 1] if end > 0 else text[:limit]
+
+
 def format_fishing_report_speech(post, now):
     published = parse_wp_datetime(post.get('date_gmt') or post['date']).astimezone(GULFPORT_TZ)
-    age = format_report_age(published, now)
-    date_text = format_report_date(published)
-    summary = html_to_text(post.get('excerpt', {}).get('rendered', ''))
-    if not summary:
+    body = report_body(post)
+    if not body:
         raise ValueError('empty fishing report')
-    speech = f"Hubbard's latest fishing report is from {date_text}. That's {age}."
-    if (now.date() - published.date()).days > 7:
-        speech += ' They usually post weekly.'
-    speech += f' {summary}'
-    return speech
+    intro = (
+        f"Here's the Hubbard's Marina fishing report from {format_report_date(published)}. "
+        f"That's {format_report_age(published, now)}. "
+    )
+    budget = MAX_SPEECH_CHARS - len(intro) - len(REPORT_CREDIT)
+    return intro + trim_to_sentence(f'{body}.', budget) + REPORT_CREDIT
 
 
 def get_fishing_report(now=None):
@@ -267,15 +296,15 @@ def get_fishing_report(now=None):
         posts = http_json(HUBBARDS_REPORTS_URL)
         speech_output = format_fishing_report_speech(latest_fishing_report(posts), now)
     except HTTP_OR_MISSING:
-        speech_output = "Chaps kitty could not find the Hubbard's fishing report right now."
-    return speak('Fishing Report', speech_output, speech_output, True)
+        speech_output = "Chaps kitty could not find the Hubbard's Marina fishing report right now."
+    return speak("Hubbard's Marina Fishing Report", speech_output, speech_output, True)
 
 
 def get_welcome_response():
     speech_output = (
         'The Chaps Kitty skill can tell you many things that Chaps Kitty '
         'knows, for example, you can ask Chaps Kitty what the current '
-        "lake level is, the tide in Gulfport, or Hubbard's fishing report."
+        "lake level is, the tide in Gulfport, or the Hubbard's Marina fishing report."
     )
     return speak('Welcome', speech_output, REPROMPT, False)
 
@@ -284,7 +313,7 @@ def get_help_response():
     speech_output = (
         'The Chaps Kitty skill can tell you many things that Chaps Kitty '
         'knows, for example, you can ask about the lake level, the '
-        "Gulfport tide, or Hubbard's fishing report. What would you "
+        "Gulfport tide, or the Hubbard's Marina fishing report. What would you "
         'like Chaps Kitty to tell you about?'
     )
     return speak('Welcome', speech_output, REPROMPT, False)

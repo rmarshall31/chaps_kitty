@@ -170,10 +170,14 @@ WP_POSTS = [
         'date_gmt': '2026-08-22T18:28:37',
         'slug': 'hubbards-marina-fishing-report-8-22-26',
         'title': {'rendered': 'Hubbard&#8217;s Marina Fishing Report 8-22-26'},
-        'excerpt': {
+        'content': {
             'rendered': (
                 '<p>Inshore Fishing Report The snook bite has been really '
-                'good around the passes. Folks are having [&hellip;]</p>'
+                'good around the passes. Folks are having better success '
+                'with smaller lures. Wahoo are possible too</p>'
+                '<p>Spread the word by visiting: https://returnemright.org/. '
+                'TERMS OF REFERENCE- Inshore: This covers the inner bays.</p>'
+                '<p>Thank you for reading our report.</p>'
             )
         },
     },
@@ -182,7 +186,7 @@ WP_POSTS = [
         'date_gmt': '2026-08-09T05:25:58',
         'slug': 'hubbards-marina-cruise-news-2',
         'title': {'rendered': "Hubbard's Marina Cruise News"},
-        'excerpt': {'rendered': '<p>Wildlife update.</p>'},
+        'content': {'rendered': '<p>Wildlife update.</p>'},
     },
 ]
 
@@ -195,21 +199,51 @@ class FishingReportTests(unittest.TestCase):
         speech = ck.format_fishing_report_speech(post, now)
         self.assertIn('August 22nd', speech)
         self.assertIn('22 days old', speech)
-        self.assertIn('usually post weekly', speech)
         self.assertIn('snook bite', speech)
-        self.assertNotIn('hellip', speech.lower())
+        self.assertNotIn('weekly', speech)
+
+    def test_speaks_past_the_wordpress_excerpt_cutoff(self):
+        now = ck.parse_wp_datetime('2026-09-13T12:00:00').astimezone(ck.GULFPORT_TZ)
+        speech = ck.format_fishing_report_speech(WP_POSTS[0], now)
+        self.assertIn('Wahoo are possible too', speech)
+
+    def test_credits_hubbards_marina(self):
+        now = ck.parse_wp_datetime('2026-09-13T12:00:00').astimezone(ck.GULFPORT_TZ)
+        speech = ck.format_fishing_report_speech(WP_POSTS[0], now)
+        self.assertIn("Hubbard's Marina fishing report", speech)
+        self.assertIn('Captain Dylan Hubbard', speech)
+        self.assertIn('hubbardsmarina.com', speech)
+
+    def test_credit_survives_truncation(self):
+        now = ck.parse_wp_datetime('2026-09-13T12:00:00').astimezone(ck.GULFPORT_TZ)
+        post = dict(WP_POSTS[0], content={'rendered': '<p>' + 'Snook are biting. ' * 900 + '</p>'})
+        speech = ck.format_fishing_report_speech(post, now)
+        self.assertLessEqual(len(speech), ck.MAX_SPEECH_CHARS)
+        self.assertTrue(speech.endswith(ck.REPORT_CREDIT))
+
+    def test_drops_boilerplate_and_links(self):
+        speech = ck.report_body(WP_POSTS[0])
+        self.assertNotIn('TERMS OF REFERENCE', speech)
+        self.assertNotIn('Thank you for reading', speech)
+        self.assertNotIn('returnemright', speech)
+
+    def test_long_report_stays_under_alexa_limit(self):
+        now = ck.parse_wp_datetime('2026-09-13T12:00:00').astimezone(ck.GULFPORT_TZ)
+        post = dict(WP_POSTS[0], content={'rendered': '<p>' + 'Snook are biting. ' * 900 + '</p>'})
+        speech = ck.format_fishing_report_speech(post, now)
+        self.assertLessEqual(len(speech), ck.MAX_SPEECH_CHARS)
+        self.assertTrue(speech.endswith('.'))
 
     def test_today_is_not_called_old(self):
         now = ck.parse_wp_datetime('2026-08-22T20:00:00').astimezone(ck.GULFPORT_TZ)
         speech = ck.format_fishing_report_speech(WP_POSTS[0], now)
         self.assertIn('today', speech)
-        self.assertNotIn('usually post weekly', speech)
 
     def test_get_fishing_report_survives_wp_failure(self):
         with mock.patch('chaps_kitty.urllib.request.urlopen', side_effect=URLError('timeout')):
             result = ck.get_fishing_report()
         self.assertIn(
-            "could not find the Hubbard's fishing report",
+            "could not find the Hubbard's Marina fishing report",
             result['response']['outputSpeech']['text'],
         )
 
